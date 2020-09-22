@@ -212,6 +212,9 @@ type SaramaClient interface {
 	NewConsumerFromClient() (sarama.Consumer, error)
 
 	// List the consumer groups available in the cluster.
+	// Returns a Map with the consumer group and consumer group type, this is
+	// used in the code as a Set, the consumer group type is not relevant, we
+	// decided to not convert it to a map[string]struct returned by Sarama
 	ListConsumerGroups() (map[string]string, error)
 }
 
@@ -363,11 +366,7 @@ func (c *BurrowSaramaClient) ListConsumerGroups() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	groups, err := admin.ListConsumerGroups()
-	if err != nil {
-		return nil, err
-	}
-	return groups, nil
+	return admin.ListConsumerGroups()
 }
 
 // MockSaramaClient is a mock of SaramaClient. It is used in tests by multiple packages. It should never be used in the
