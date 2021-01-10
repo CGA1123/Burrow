@@ -23,6 +23,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/linkedin/Burrow/helpers"
+	"github.com/linkedin/Burrow/offset"
 	"github.com/linkedin/Burrow/protocol"
 )
 
@@ -52,17 +53,6 @@ type KafkaClient struct {
 	running     sync.WaitGroup
 }
 
-type offsetKey struct {
-	Group     string
-	Topic     string
-	Partition int32
-	ErrorAt   string
-}
-type offsetValue struct {
-	Offset    int64
-	Timestamp int64
-	ErrorAt   string
-}
 type metadataHeader struct {
 	ProtocolType          string
 	Generation            int32
@@ -70,6 +60,7 @@ type metadataHeader struct {
 	Leader                string
 	CurrentStateTimestamp int64
 }
+
 type metadataMember struct {
 	MemberID         string
 	GroupInstanceID  string
@@ -79,6 +70,7 @@ type metadataMember struct {
 	SessionTimeout   int32
 	Assignment       map[string][]int32
 }
+
 type backfillEndOffset struct {
 	Value int64
 }
@@ -421,79 +413,34 @@ func (module *KafkaClient) acceptConsumerGroup(group string) bool {
 }
 
 func (module *KafkaClient) decodeKeyAndOffset(offsetOrder int64, keyBuffer *bytes.Buffer, value []byte, logger *zap.Logger) {
-	// Version 0 and 1 keys are decoded the same way
-	offsetKey, errorAt := decodeOffsetKeyV0(keyBuffer)
-	if errorAt != "" {
-		logger.Warn("failed to decode",
-			zap.String("message_type", "offset"),
-			zap.String("group", offsetKey.Group),
-			zap.String("topic", offsetKey.Topic),
-			zap.Int32("partition", offsetKey.Partition),
-			zap.String("reason", errorAt),
-		)
-		return
+	offset, err := offset.DecodeOffset(keyBuffer, bytes.NewBuffer(value))
+	if err != nil {
+		logger.Error("failed to decode offset message", zap.Error(err))
 	}
 
 	offsetLogger := logger.With(
 		zap.String("message_type", "offset"),
-		zap.String("group", offsetKey.Group),
-		zap.String("topic", offsetKey.Topic),
-		zap.Int32("partition", offsetKey.Partition),
+		zap.String("group", offset.ConsumerGroup),
+		zap.String("topic", offset.Topic),
+		zap.Int32("partition", offset.Partition),
 	)
 
-	if !module.acceptConsumerGroup(offsetKey.Group) {
+	if !module.acceptConsumerGroup(offset.ConsumerGroup) {
 		offsetLogger.Debug("dropped", zap.String("reason", "allowlist"))
-		return
-	}
-
-	var valueVersion int16
-	valueBuffer := bytes.NewBuffer(value)
-	err := binary.Read(valueBuffer, binary.BigEndian, &valueVersion)
-	if err != nil {
-		offsetLogger.Warn("failed to decode",
-			zap.String("reason", "no value version"),
-		)
-		return
-	}
-
-	switch valueVersion {
-	case 0, 1:
-		module.decodeAndSendOffset(offsetOrder, offsetKey, valueBuffer, offsetLogger, decodeOffsetValueV0)
-	case 3:
-		module.decodeAndSendOffset(offsetOrder, offsetKey, valueBuffer, offsetLogger, decodeOffsetValueV3)
-	default:
-		offsetLogger.Warn("failed to decode",
-			zap.String("reason", "value version"),
-			zap.Int16("version", valueVersion),
-		)
-	}
-}
-
-func (module *KafkaClient) decodeAndSendOffset(offsetOrder int64, offsetKey offsetKey, valueBuffer *bytes.Buffer, logger *zap.Logger, decoder func(*bytes.Buffer) (offsetValue, string)) {
-	offsetValue, errorAt := decoder(valueBuffer)
-	if errorAt != "" {
-		logger.Warn("failed to decode",
-			zap.Int64("offset", offsetValue.Offset),
-			zap.Int64("timestamp", offsetValue.Timestamp),
-			zap.String("reason", errorAt),
-		)
 		return
 	}
 
 	partitionOffset := &protocol.StorageRequest{
 		RequestType: protocol.StorageSetConsumerOffset,
 		Cluster:     module.cluster,
-		Topic:       offsetKey.Topic,
-		Partition:   offsetKey.Partition,
-		Group:       offsetKey.Group,
-		Timestamp:   offsetValue.Timestamp,
-		Offset:      offsetValue.Offset,
+		Topic:       offset.Topic,
+		Partition:   offset.Partition,
+		Group:       offset.ConsumerGroup,
+		Timestamp:   offset.Timestamp,
+		Offset:      offset.Offset,
 		Order:       offsetOrder,
 	}
-	logger.Debug("consumer offset",
-		zap.Int64("offset", offsetValue.Offset),
-		zap.Int64("timestamp", offsetValue.Timestamp),
-	)
+
 	helpers.TimeoutSendStorageRequest(module.App.StorageChannel, partitionOffset, 1)
 }
 
@@ -775,66 +722,4 @@ func decodeMemberAssignmentV0(buf *bytes.Buffer) (map[string][]int32, string) {
 	}
 
 	return topics, ""
-}
-
-func decodeOffsetKeyV0(buf *bytes.Buffer) (offsetKey, string) {
-	var err error
-	offsetKey := offsetKey{}
-
-	offsetKey.Group, err = readString(buf)
-	if err != nil {
-		return offsetKey, "group"
-	}
-	offsetKey.Topic, err = readString(buf)
-	if err != nil {
-		return offsetKey, "topic"
-	}
-	err = binary.Read(buf, binary.BigEndian, &offsetKey.Partition)
-	if err != nil {
-		return offsetKey, "partition"
-	}
-	return offsetKey, ""
-}
-
-func decodeOffsetValueV0(valueBuffer *bytes.Buffer) (offsetValue, string) {
-	var err error
-	offsetValue := offsetValue{}
-
-	err = binary.Read(valueBuffer, binary.BigEndian, &offsetValue.Offset)
-	if err != nil {
-		return offsetValue, "offset"
-	}
-	_, err = readString(valueBuffer)
-	if err != nil {
-		return offsetValue, "metadata"
-	}
-	err = binary.Read(valueBuffer, binary.BigEndian, &offsetValue.Timestamp)
-	if err != nil {
-		return offsetValue, "timestamp"
-	}
-	return offsetValue, ""
-}
-
-func decodeOffsetValueV3(valueBuffer *bytes.Buffer) (offsetValue, string) {
-	var err error
-	offsetValue := offsetValue{}
-
-	err = binary.Read(valueBuffer, binary.BigEndian, &offsetValue.Offset)
-	if err != nil {
-		return offsetValue, "offset"
-	}
-	var leaderEpoch int32
-	err = binary.Read(valueBuffer, binary.BigEndian, &leaderEpoch)
-	if err != nil {
-		return offsetValue, "leaderEpoch"
-	}
-	_, err = readString(valueBuffer)
-	if err != nil {
-		return offsetValue, "metadata"
-	}
-	err = binary.Read(valueBuffer, binary.BigEndian, &offsetValue.Timestamp)
-	if err != nil {
-		return offsetValue, "timestamp"
-	}
-	return offsetValue, ""
 }
