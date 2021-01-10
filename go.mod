@@ -4,7 +4,7 @@ require (
 	github.com/OneOfOne/xxhash v1.2.8
 	github.com/Shopify/sarama v1.27.2
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
-	github.com/google/go-cmp v0.5.2
+	github.com/google/go-cmp v0.5.4
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/joeshaw/envdecode v0.0.0-20200121155833-099f1fc765bd
 	github.com/julienschmidt/httprouter v1.3.0
