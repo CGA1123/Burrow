@@ -19,7 +19,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/objx v0.3.0 // indirect
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
 	go.uber.org/zap v1.15.0
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
