@@ -441,72 +441,10 @@ func TestKafkaClient_decodeMemberAssignmentV0_Errors(t *testing.T) {
 	}
 }
 
-func TestKafkaClient_decodeOffsetKeyV0(t *testing.T) {
-	buf := bytes.NewBuffer([]byte("\x00\x09testgroup\x00\x09testtopic\x00\x00\x00\x0b"))
-	result, errorAt := decodeOffsetKeyV0(buf)
-
-	assert.Equalf(t, "", errorAt, "Expected decodeOffsetKeyV0 to return empty errorAt, not %v", errorAt)
-	assert.Equalf(t, "testgroup", result.Group, "Expected Group to be testgroup, not %v", result.Group)
-	assert.Equalf(t, "testtopic", result.Topic, "Expected Topic to be testtopic, not %v", result.Topic)
-	assert.Equalf(t, int32(11), result.Partition, "Expected Partition to be 11, not %v", result.Partition)
-}
-
-var decodeOffsetKeyV0Errors = []errorTestSetBytesWithString{
-	{[]byte("\x00\x09testg"), "group"},
-	{[]byte("\x00\x09testgroup\x00\x09testto"), "topic"},
-	{[]byte("\x00\x09testgroup\x00\x09testtopic\x00\x00"), "partition"},
-}
-
-func TestKafkaClient_decodeOffsetKeyV0_Errors(t *testing.T) {
-	for _, values := range decodeOffsetKeyV0Errors {
-		_, errorAt := decodeOffsetKeyV0(bytes.NewBuffer(values.Bytes))
-		assert.Equalf(t, values.ErrorAt, errorAt, "Expected errorAt to be %v, not %v", values.ErrorAt, errorAt)
-	}
-}
-
-func TestKafkaClient_decodeOffsetValueV0(t *testing.T) {
-	buf := bytes.NewBuffer([]byte("\x00\x00\x00\x00\x00\x00\x20\xb4\x00\x08testdata\x00\x00\x00\x00\x00\x00\x06\x65"))
-	result, errorAt := decodeOffsetValueV0(buf)
-
-	assert.Equalf(t, "", errorAt, "Expected decodeOffsetValueV0 to return empty errorAt, not %v", errorAt)
-	assert.Equalf(t, int64(8372), result.Offset, "Expected Offset to be 8372, not %v", result.Offset)
-	assert.Equalf(t, int64(1637), result.Timestamp, "Expected Timestamp to be 1637, not %v", result.Timestamp)
-}
-
 var decodeOffsetValueV0Errors = []errorTestSetBytesWithString{
 	{[]byte("\x00\x00\x00\x00\x00"), "offset"},
 	{[]byte("\x00\x00\x00\x00\x00\x00\x20\xb4\x00\x08tes"), "metadata"},
 	{[]byte("\x00\x00\x00\x00\x00\x00\x20\xb4\x00\x08testdata\x00\x00\x00\x00"), "timestamp"},
-}
-
-func TestKafkaClient_decodeOffsetValueV0_Errors(t *testing.T) {
-	for _, values := range decodeOffsetValueV0Errors {
-		_, errorAt := decodeOffsetValueV0(bytes.NewBuffer(values.Bytes))
-		assert.Equalf(t, values.ErrorAt, errorAt, "Expected errorAt to be %v, not %v", values.ErrorAt, errorAt)
-	}
-}
-
-func TestKafkaClient_decodeOffsetValueV3(t *testing.T) {
-	buf := bytes.NewBuffer([]byte("\x00\x00\x00\x00\x00\x00\x20\xb4\x00\x00\x00\x00\x00\x08testdata\x00\x00\x00\x00\x00\x00\x06\x65"))
-	result, errorAt := decodeOffsetValueV3(buf)
-
-	assert.Equalf(t, "", errorAt, "Expected decodeOffsetValueV3 to return empty errorAt, not %v", errorAt)
-	assert.Equalf(t, int64(8372), result.Offset, "Expected Offset to be 8372, not %v", result.Offset)
-	assert.Equalf(t, int64(1637), result.Timestamp, "Expected Timestamp to be 1637, not %v", result.Timestamp)
-}
-
-var decodeOffsetValueV3Errors = []errorTestSetBytesWithString{
-	{[]byte("\x00\x00\x00\x00\x00"), "offset"},
-	{[]byte("\x00\x00\x00\x00\x00\x00\x20\xb4\x00\x00\x00"), "leaderEpoch"},
-	{[]byte("\x00\x00\x00\x00\x00\x00\x20\xb4\x00\x08tes"), "metadata"},
-	{[]byte("\x00\x00\x00\x00\x00\x00\x20\xb4\x00\x00\x00\x00\x00\x08testdata\x00\x00\x00\x00"), "timestamp"},
-}
-
-func TestKafkaClient_decodeOffsetValueV3_Errors(t *testing.T) {
-	for _, values := range decodeOffsetValueV3Errors {
-		_, errorAt := decodeOffsetValueV3(bytes.NewBuffer(values.Bytes))
-		assert.Equalf(t, values.ErrorAt, errorAt, "Expected errorAt to be %v, not %v", values.ErrorAt, errorAt)
-	}
 }
 
 func TestKafkaClient_decodeKeyAndOffset(t *testing.T) {
