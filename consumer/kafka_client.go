@@ -413,7 +413,7 @@ func (module *KafkaClient) acceptConsumerGroup(group string) bool {
 }
 
 func (module *KafkaClient) decodeKeyAndOffset(offsetOrder int64, keyBuffer *bytes.Buffer, value []byte, logger *zap.Logger) {
-	offset, err := offset.DecodeOffset(keyBuffer, bytes.NewBuffer(value))
+	decoded, err := offset.DecodeOffset(keyBuffer, bytes.NewBuffer(value))
 	if err != nil {
 		logger.Error("failed to decode offset message", zap.Error(err))
 		return
@@ -421,12 +421,12 @@ func (module *KafkaClient) decodeKeyAndOffset(offsetOrder int64, keyBuffer *byte
 
 	offsetLogger := logger.With(
 		zap.String("message_type", "offset"),
-		zap.String("group", offset.ConsumerGroup),
-		zap.String("topic", offset.Topic),
-		zap.Int32("partition", offset.Partition),
+		zap.String("group", decoded.ConsumerGroup),
+		zap.String("topic", decoded.Topic),
+		zap.Int32("partition", decoded.Partition),
 	)
 
-	if !module.acceptConsumerGroup(offset.ConsumerGroup) {
+	if !module.acceptConsumerGroup(decoded.ConsumerGroup) {
 		offsetLogger.Debug("dropped", zap.String("reason", "allowlist"))
 		return
 	}
@@ -434,11 +434,11 @@ func (module *KafkaClient) decodeKeyAndOffset(offsetOrder int64, keyBuffer *byte
 	partitionOffset := &protocol.StorageRequest{
 		RequestType: protocol.StorageSetConsumerOffset,
 		Cluster:     module.cluster,
-		Topic:       offset.Topic,
-		Partition:   offset.Partition,
-		Group:       offset.ConsumerGroup,
-		Timestamp:   offset.Timestamp,
-		Offset:      offset.Offset,
+		Topic:       decoded.Topic,
+		Partition:   decoded.Partition,
+		Group:       decoded.ConsumerGroup,
+		Timestamp:   decoded.Timestamp,
+		Offset:      decoded.Offset,
 		Order:       offsetOrder,
 	}
 

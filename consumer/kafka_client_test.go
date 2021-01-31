@@ -441,12 +441,6 @@ func TestKafkaClient_decodeMemberAssignmentV0_Errors(t *testing.T) {
 	}
 }
 
-var decodeOffsetValueV0Errors = []errorTestSetBytesWithString{
-	{[]byte("\x00\x00\x00\x00\x00"), "offset"},
-	{[]byte("\x00\x00\x00\x00\x00\x00\x20\xb4\x00\x08tes"), "metadata"},
-	{[]byte("\x00\x00\x00\x00\x00\x00\x20\xb4\x00\x08testdata\x00\x00\x00\x00"), "timestamp"},
-}
-
 func TestKafkaClient_decodeKeyAndOffset(t *testing.T) {
 	module := fixtureModule()
 	viper.Set("consumer.test.group-allowlist", "test.*")
