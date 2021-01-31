@@ -416,6 +416,7 @@ func (module *KafkaClient) decodeKeyAndOffset(offsetOrder int64, keyBuffer *byte
 	offset, err := offset.DecodeOffset(keyBuffer, bytes.NewBuffer(value))
 	if err != nil {
 		logger.Error("failed to decode offset message", zap.Error(err))
+		return
 	}
 
 	offsetLogger := logger.With(

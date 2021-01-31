@@ -496,21 +496,6 @@ func TestKafkaClient_decodeKeyAndOffset_Allowlist(t *testing.T) {
 	module.decodeKeyAndOffset(0, keyBuf, valueBytes, zap.NewNop())
 }
 
-func TestKafkaClient_decodeAndSendOffset_ErrorValue(t *testing.T) {
-	module := fixtureModule()
-	module.Configure("test", "consumer.test")
-
-	offsetKey := offsetKey{
-		Group:     "testgroup",
-		Topic:     "testtopic",
-		Partition: 11,
-	}
-	valueBuf := bytes.NewBuffer([]byte("\x00\x00\x00\x00\x00\x00\x00\x00\x20\xb4\x00\x08testd"))
-
-	module.decodeAndSendOffset(0, offsetKey, valueBuf, zap.NewNop(), decodeOffsetValueV0)
-	// Should not timeout
-}
-
 func TestKafkaClient_decodeGroupMetadata(t *testing.T) {
 	module := fixtureModule()
 	module.Configure("test", "consumer.test")
