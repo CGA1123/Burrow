@@ -10,7 +10,7 @@ WORKDIR $BURROW_SRC
 RUN go mod tidy && go build -o /tmp/ ./...
 
 # stage 2: runner
-FROM alpine:3.12
+FROM alpine:3.13
 
 COPY --from=builder /tmp/burrow /app/
 COPY --from=builder /tmp/configure /etc/burrow/
