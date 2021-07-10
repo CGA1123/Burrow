@@ -35,7 +35,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -74,7 +73,8 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	if err := shims.Configure(); err != nil {
-		log.Fatalf("error configuring: %v", err)
+		fmt.Fprintln(os.Stderr, "error configuring:", err.Error())
+		panic(exitCode{1})
 	}
 
 	// The only command line arg is the config file
