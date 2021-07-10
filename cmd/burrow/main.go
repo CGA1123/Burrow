@@ -45,6 +45,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/linkedin/Burrow/core"
+	"github.com/linkedin/Burrow/shims"
 )
 
 // exitCode wraps a return value for the application
@@ -70,6 +71,11 @@ func main() {
 	defer handleExit()
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	if err := shims.Configure(); err != nil {
+		fmt.Fprintln(os.Stderr, "error configuring:", err.Error())
+		panic(exitCode{1})
+	}
 
 	// The only command line arg is the config file
 	configPath := flag.String("config-dir", ".", "Directory that contains the configuration file")
@@ -100,12 +106,6 @@ func main() {
 		panic(exitCode{1})
 	}
 	defer core.RemovePidFile(pidFile)
-
-	// Set up stderr/stdout to go to a separate log file, if enabled
-	stdoutLogfile := viper.GetString("general.stdout-logfile")
-	if stdoutLogfile != "" {
-		core.OpenOutLog(stdoutLogfile)
-	}
 
 	// Register signal handlers for exiting
 	exitChannel := make(chan os.Signal, 1)

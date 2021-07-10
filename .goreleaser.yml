@@ -1,0 +1,49 @@
+builds:
+- env:
+    - CGO_ENABLED=0
+  mod_timestamp: '{{ .CommitTimestamp }}'
+  flags:
+    - -trimpath
+  ldflags:
+    - '-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}'
+  goos:
+    - linux
+    - darwin
+  goarch:
+    - amd64
+    - arm64
+  main: ./cmd/burrow
+  id: burrow
+
+archives:
+- format: zip
+  name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+  builds:
+    - burrow
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
+  algorithm: sha256
+
+release:
+  github:
+    owner: "CGA1123"
+    name: "burrow"
+  draft: true
+changelog:
+  skip: true
+
+dockers:
+  -
+    ids:
+    - burrow
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser
+    image_templates:
+    - 'ghcr.io/cga1123/burrow:latest'
+    - 'ghcr.io/cga1123/burrow:{{ .Tag }}'
+    - 'ghcr.io/cga1123/burrow:{{ .Major }}'
+    - 'ghcr.io/cga1123/burrow:{{ .Major }}.{{ .Minor }}'
+    extra_files:
+    - entrypoint.sh

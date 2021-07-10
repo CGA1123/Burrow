@@ -2,9 +2,12 @@ package shims
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/url"
 	"strings"
 
+	"github.com/joeshaw/envdecode"
 	"github.com/spf13/viper"
 )
 
@@ -93,4 +96,49 @@ func BuildConfig(config *Config) (*viper.Viper, error) {
 	viperConfig.Set("cluster.heroku-kafka.offset-refresh", 20)
 
 	return viperConfig, err
+}
+
+func writeCert(path, content string) error {
+	return ioutil.WriteFile(path, []byte(content), 0644)
+}
+
+// Reads a helper.Config from the environment, and writes a valid burrow
+// configuration file based on that, also writing kafka certificates to
+// configured paths
+func Configure() error {
+	log.SetPrefix("[configure] ")
+	log.Println("loading configuration from environment")
+
+	config := &Config{}
+	envdecode.MustDecode(config)
+
+	burrowConfig, err := BuildConfig(config)
+	if err != nil {
+		return err
+	}
+
+	log.Println("configuration loaded")
+
+	log.Printf("writing burrow config to: [%v]", config.ConfigFilePath)
+	if err := burrowConfig.WriteConfigAs(config.ConfigFilePath); err != nil {
+		return err
+	}
+
+	log.Println("writing certificates")
+
+	if err := writeCert(config.KafkaClientCertPath, config.KafkaClientCert); err != nil {
+		return err
+	}
+
+	if err := writeCert(config.KafkaClientCertKeyPath, config.KafkaClientCertKey); err != nil {
+		return err
+	}
+
+	if err := writeCert(config.KafkaTrustedCertPath, config.KafkaTrustedCert); err != nil {
+		return err
+	}
+
+	log.Println("all done")
+
+	return nil
 }

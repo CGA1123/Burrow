@@ -2,5 +2,4 @@
 
 set -euo pipefail
 
-/etc/burrow/configure
-/app/burrow --config-dir /etc/burrow
+/app/burrow --config-dir ${CONFIG_FILE_PATH}

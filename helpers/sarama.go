@@ -59,6 +59,7 @@ var kafkaVersions = map[string]sarama.KafkaVersion{
 	"2.4.0":    sarama.V2_4_0_0,
 	"2.5.0":    sarama.V2_5_0_0,
 	"2.6.0":    sarama.V2_6_0_0,
+	"2.7.0":    sarama.V2_7_0_0,
 }
 
 func parseKafkaVersion(kafkaVersion string) sarama.KafkaVersion {
@@ -124,28 +125,6 @@ func GetSaramaConfigFromClientProfile(profileName string) *sarama.Config {
 		saramaConfig.Net.TLS.Config.InsecureSkipVerify = viper.GetBool("tls." + tlsName + ".noverify")
 	}
 
-	// Configure SASL if enabled
-	if viper.IsSet(configRoot + ".sasl") {
-		saslName := viper.GetString(configRoot + ".sasl")
-
-		saramaConfig.Net.SASL.Enable = true
-		mechanism := viper.GetString("sasl." + saslName + ".mechanism")
-		if mechanism == "SCRAM-SHA-256" {
-			saramaConfig.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
-			saramaConfig.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient {
-				return &XDGSCRAMClient{HashGeneratorFcn: SHA256}
-			}
-		} else if mechanism == "SCRAM-SHA-512" {
-			saramaConfig.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
-			saramaConfig.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient {
-				return &XDGSCRAMClient{HashGeneratorFcn: SHA512}
-			}
-		}
-		saramaConfig.Net.SASL.Handshake = viper.GetBool("sasl." + saslName + ".handshake-first")
-		saramaConfig.Net.SASL.User = viper.GetString("sasl." + saslName + ".username")
-		saramaConfig.Net.SASL.Password = viper.GetString("sasl." + saslName + ".password")
-	}
-
 	return saramaConfig
 }
 
@@ -209,6 +188,12 @@ type SaramaClient interface {
 	// NewConsumerFromClient creates a new consumer using the given client. It is still necessary to call Close() on the
 	// underlying client when shutting down this consumer.
 	NewConsumerFromClient() (sarama.Consumer, error)
+
+	// List the consumer groups available in the cluster.
+	// Returns a Map with the consumer group and consumer group type, this is
+	// used in the code as a Set, the consumer group type is not relevant, we
+	// decided to not convert it to a map[string]struct returned by Sarama
+	ListConsumerGroups() (map[string]string, error)
 }
 
 // BurrowSaramaClient is an implementation of the SaramaClient interface for use in Burrow modules
@@ -353,6 +338,15 @@ func (b *BurrowSaramaBroker) GetAvailableOffsets(request *sarama.OffsetRequest) 
 	return b.broker.GetAvailableOffsets(request)
 }
 
+// ListConsumerGroups List the consumer groups available in the cluster.
+func (c *BurrowSaramaClient) ListConsumerGroups() (map[string]string, error) {
+	admin, err := sarama.NewClusterAdminFromClient(c.Client)
+	if err != nil {
+		return nil, err
+	}
+	return admin.ListConsumerGroups()
+}
+
 // MockSaramaClient is a mock of SaramaClient. It is used in tests by multiple packages. It should never be used in the
 // normal code.
 type MockSaramaClient struct {
@@ -452,6 +446,11 @@ func (m *MockSaramaClient) Closed() bool {
 func (m *MockSaramaClient) NewConsumerFromClient() (sarama.Consumer, error) {
 	args := m.Called()
 	return args.Get(0).(sarama.Consumer), args.Error(1)
+}
+
+func (m *MockSaramaClient) ListConsumerGroups() (map[string]string, error) {
+	args := m.Called()
+	return args.Get(0).(map[string]string), args.Error(1)
 }
 
 // MockSaramaBroker is a mock of SaramaBroker. It is used in tests by multiple packages. It should never be used in the

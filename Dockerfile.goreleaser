@@ -1,0 +1,7 @@
+FROM alpine:3.13
+
+WORKDIR /app
+COPY burrow /app/
+COPY entrypoint.sh /etc/burrow/
+
+CMD ["/etc/burrow/entrypoint.sh"]
